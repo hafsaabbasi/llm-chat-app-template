@@ -8,7 +8,7 @@ const typingIndicator = document.getElementById("typing-indicator");
 let chatHistory = [];
 let isProcessing = false;
 
-// Auto resize
+// Auto resize textarea
 userInput.addEventListener("input", function () {
 	this.style.height = "auto";
 	this.style.height = this.scrollHeight + "px";
@@ -33,58 +33,69 @@ async function sendMessage() {
 	userInput.disabled = true;
 	sendButton.disabled = true;
 
-	addMessage("user", message);
+	addMessageToChat("user", message);
 	userInput.value = "";
 	userInput.style.height = "auto";
 
 	typingIndicator.classList.add("visible");
 
-	// IMAGE MODE 👉 /image prompt
+	// ==============================
+	// 🖼 IMAGE GENERATION MODE
+	// ==============================
 	if (message.startsWith("/image")) {
 		const prompt = message.replace("/image", "").trim();
 
 		try {
-			const res = await fetch("/api/image", {
+			const response = await fetch("/api/image", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ prompt })
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ prompt }),
 			});
 
-			const blob = await res.blob();
+			if (!response.ok) throw new Error("Image failed");
+
+			const blob = await response.blob();
 			const imgURL = URL.createObjectURL(blob);
 
-			addImage(imgURL);
+			addImageToChat(imgURL);
 
-		} catch (err) {
-			addMessage("assistant", "Image generate nahi ho saki ❌");
+		} catch (error) {
+			addMessageToChat("assistant", "❌ Image generate nahi ho saki");
 		}
 	}
 
-	// TEXT CHAT MODE
+	// ==============================
+	// 💬 TEXT CHAT MODE
+	// ==============================
 	else {
 		try {
 			const response = await fetch("/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					messages: [
 						...chatHistory,
 						{ role: "user", content: message }
-					]
+					],
 				}),
 			});
 
-			const data = await response.json();
+			if (!response.ok) throw new Error("Chat failed");
 
+			const data = await response.json();
 			const reply = data.response || "No response";
 
-			addMessage("assistant", reply);
+			addMessageToChat("assistant", reply);
 
 			chatHistory.push({ role: "user", content: message });
 			chatHistory.push({ role: "assistant", content: reply });
 
-		} catch (err) {
-			addMessage("assistant", "Error aagaya ❌");
+		} catch (error) {
+			addMessageToChat("assistant", "❌ Error in chat response");
 		}
 	}
 
@@ -96,8 +107,10 @@ async function sendMessage() {
 	userInput.focus();
 }
 
-// ADD TEXT MESSAGE
-function addMessage(role, content) {
+// ==============================
+// TEXT MESSAGE ADD
+// ==============================
+function addMessageToChat(role, content) {
 	const div = document.createElement("div");
 	div.className = `message ${role}-message`;
 	div.innerHTML = `<p>${content}</p>`;
@@ -105,14 +118,16 @@ function addMessage(role, content) {
 	chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// ADD IMAGE MESSAGE
-function addImage(src) {
+// ==============================
+// IMAGE MESSAGE ADD
+// ==============================
+function addImageToChat(src) {
 	const div = document.createElement("div");
 	div.className = "message assistant-message";
 
 	div.innerHTML = `
-		<p>Generated Image:</p>
-		<img src="${src}" style="max-width:100%;border-radius:10px;margin-top:10px;">
+		<p>🖼 Generated Image:</p>
+		<img src="${src}" style="width:100%;border-radius:10px;margin-top:10px;">
 	`;
 
 	chatMessages.appendChild(div);
